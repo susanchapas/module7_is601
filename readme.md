@@ -1,264 +1,108 @@
-# 📦 Project Setup
+# Module 7 — Dockerized QR Code Generator
 
----
+A Python CLI that encodes a URL into a QR code PNG. It runs inside a Docker
+container as a non-root user, is configured through environment variables, and
+writes its output to a mounted volume so the generated images survive on the
+host.
 
-# 🧩 1. Install Homebrew (Mac Only)
+## Links
 
-> Skip this step if you're on Windows.
+| Resource | Link |
+| --- | --- |
+| GitHub repository | https://github.com/susanchapas/module7_is601 |
+| DockerHub image | https://hub.docker.com/r/susanchapas/module7_is601 |
 
-Homebrew is a package manager for macOS.  
-You’ll use it to easily install Git, Python, Docker, etc.
+## Screenshots
 
-**Install Homebrew:**
+| Evidence | File |
+| --- | --- |
+| Container logs (successful run) | [screenshots/container-logs.png](screenshots/container-logs.png) |
+| GitHub Actions workflow (successful run) | [screenshots/github-actions.png](screenshots/github-actions.png) |
 
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+## Project files
 
-**Verify Homebrew:**
+| File | Purpose |
+| --- | --- |
+| [main.py](main.py) | QR code generator CLI |
+| [requirements.txt](requirements.txt) | Python dependencies |
+| [Dockerfile](Dockerfile) | Image definition (Python 3.12 slim, non-root user) |
+| [docker-compose.yml](docker-compose.yml) | Env vars + volume mount for local runs |
+| [.github/workflows/docker-image.yml](.github/workflows/docker-image.yml) | CI: build, smoke test, push to DockerHub |
+| [reflection.md](reflection.md) | Reflection document |
 
-```bash
-brew --version
-```
+## Configuration
 
-If you see a version number, you're good to go.
+Environment variables read by the application:
 
----
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `QR_CODE_DIR` | `qr_codes` | Directory the PNG is written to |
+| `FILL_COLOR` | `red` | QR code foreground color |
+| `BACK_COLOR` | `white` | QR code background color |
 
-# 🧩 2. Install and Configure Git
+Command-line argument:
 
-## Install Git
+| Argument | Default | Purpose |
+| --- | --- | --- |
+| `--url` | `https://github.com/kaw393939` | URL encoded in the QR code |
 
-- **MacOS (using Homebrew)**
+## Build and run
 
-```bash
-brew install git
-```
-
-- **Windows**
-
-Download and install [Git for Windows](https://git-scm.com/download/win).  
-Accept the default options during installation.
-
-**Verify Git:**
-
-```bash
-git --version
-```
-
----
-
-## Configure Git Globals
-
-Set your name and email so Git tracks your commits properly:
+Build the image:
 
 ```bash
-git config --global user.name "Your Name"
-git config --global user.email "your_email@example.com"
+docker build -t module7-qr .
 ```
 
-Confirm the settings:
+Run it, mounting the host `qr_codes` directory so the PNG lands on your machine:
 
 ```bash
-git config --list
+docker run --rm \
+  -e FILL_COLOR=blue \
+  -e BACK_COLOR=white \
+  -e QR_CODE_DIR=/app/qr_codes \
+  -v "$PWD/qr_codes:/app/qr_codes" \
+  module7-qr --url https://www.njit.edu
 ```
 
----
+Expected log line:
 
-## Generate SSH Keys and Connect to GitHub
+```
+2026-08-10 02:56:10,857 - INFO - QR code successfully saved to /app/qr_codes/QRCode_20260810025610.png
+```
 
-> Only do this once per machine.
-
-1. Generate a new SSH key:
+Or use Compose, which supplies the same env vars and volume mount:
 
 ```bash
-ssh-keygen -t ed25519 -C "your_email@example.com"
+docker compose up --build
 ```
 
-(Press Enter at all prompts.)
-
-2. Start the SSH agent:
+Pull the published image instead of building:
 
 ```bash
-eval "$(ssh-agent -s)"
+docker run --rm -v "$PWD/qr_codes:/app/qr_codes" \
+  susanchapas/module7_is601:latest --url https://www.njit.edu
 ```
 
-3. Add the SSH private key to the agent:
-
-```bash
-ssh-add ~/.ssh/id_ed25519
-```
-
-4. Copy your SSH public key:
-
-- **Mac/Linux:**
-
-```bash
-cat ~/.ssh/id_ed25519.pub | pbcopy
-```
-
-- **Windows (Git Bash):**
-
-```bash
-cat ~/.ssh/id_ed25519.pub | clip
-```
-
-5. Add the key to your GitHub account:
-   - Go to [GitHub SSH Settings](https://github.com/settings/keys)
-   - Click **New SSH Key**, paste the key, save.
-
-6. Test the connection:
-
-```bash
-ssh -T git@github.com
-```
-
-You should see a success message.
-
----
-
-# 🧩 3. Clone the Repository
-
-Now you can safely clone the course project:
-
-```bash
-git clone <repository-url>
-cd <repository-directory>
-```
-
----
-
-# 🛠️ 4. Install Python 3.10+
-
-## Install Python
-
-- **MacOS (Homebrew)**
-
-```bash
-brew install python
-```
-
-- **Windows**
-
-Download and install [Python for Windows](https://www.python.org/downloads/).  
-✅ Make sure you **check the box** `Add Python to PATH` during setup.
-
-**Verify Python:**
-
-```bash
-python3 --version
-```
-or
-```bash
-python --version
-```
-
----
-
-## Create and Activate a Virtual Environment
-
-(Optional but recommended)
+## Running without Docker
 
 ```bash
 python3 -m venv venv
-source venv/bin/activate   # Mac/Linux
-venv\Scripts\activate.bat  # Windows
-```
-
-### Install Required Packages
-
-```bash
+source venv/bin/activate        # Windows: venv\Scripts\activate.bat
 pip install -r requirements.txt
+python main.py --url https://www.njit.edu
 ```
 
----
+## Continuous integration
 
-# 🐳 5. (Optional) Docker Setup
+Every push to `main` triggers [.github/workflows/docker-image.yml](.github/workflows/docker-image.yml),
+which builds the image, runs the container once as a smoke test, then logs in to
+DockerHub and pushes `latest` plus a commit-SHA tag.
 
-> Skip if Docker isn't used in this module.
+The workflow needs two repository secrets
+(**Settings → Secrets and variables → Actions**):
 
-## Install Docker
-
-- [Install Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)
-- [Install Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
-
-## Build Docker Image
-
-```bash
-docker build -t <image-name> .
-```
-
-## Run Docker Container
-
-```bash
-docker run -it --rm <image-name>
-```
-
----
-
-# 🚀 6. Running the Project
-
-- **Without Docker**:
-
-```bash
-python main.py
-```
-
-(or update this if the main script is different.)
-
-- **With Docker**:
-
-```bash
-docker run -it --rm <image-name>
-```
-
----
-
-# 📝 7. Submission Instructions
-
-After finishing your work:
-
-```bash
-git add .
-git commit -m "Complete Module X"
-git push origin main
-```
-
-Then submit the GitHub repository link as instructed.
-
----
-
-# 🔥 Useful Commands Cheat Sheet
-
-| Action                         | Command                                          |
-| ------------------------------- | ------------------------------------------------ |
-| Install Homebrew (Mac)          | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` |
-| Install Git                     | `brew install git` or Git for Windows installer |
-| Configure Git Global Username  | `git config --global user.name "Your Name"`      |
-| Configure Git Global Email     | `git config --global user.email "you@example.com"` |
-| Clone Repository                | `git clone <repo-url>`                          |
-| Create Virtual Environment     | `python3 -m venv venv`                           |
-| Activate Virtual Environment   | `source venv/bin/activate` / `venv\Scripts\activate.bat` |
-| Install Python Packages        | `pip install -r requirements.txt`               |
-| Build Docker Image              | `docker build -t <image-name> .`                |
-| Run Docker Container            | `docker run -it --rm <image-name>`               |
-| Push Code to GitHub             | `git add . && git commit -m "message" && git push` |
-
----
-
-# 📋 Notes
-
-- Install **Homebrew** first on Mac.
-- Install and configure **Git** and **SSH** before cloning.
-- Use **Python 3.10+** and **virtual environments** for Python projects.
-- **Docker** is optional depending on the project.
-
----
-
-# 📎 Quick Links
-
-- [Homebrew](https://brew.sh/)
-- [Git Downloads](https://git-scm.com/downloads)
-- [Python Downloads](https://www.python.org/downloads/)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- [GitHub SSH Setup Guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)
+| Secret | Value |
+| --- | --- |
+| `DOCKERHUB_USERNAME` | Your DockerHub username |
+| `DOCKERHUB_TOKEN` | A DockerHub access token (**Account Settings → Personal access tokens**) |
